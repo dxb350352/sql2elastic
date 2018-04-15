@@ -242,7 +242,12 @@ func handleSelectWhereComparisonExpr(expr *sqlparser.Expr, topLevel bool, parent
 		if missingCheck {
 			resultStr = fmt.Sprintf(`{"missing":{"field":"%v"}}`, colNameStr)
 		} else {
-			resultStr = fmt.Sprintf(`{"match" : {"%v" : {"query" : "%v", "type" : "phrase"}}}`, colNameStr, rightStr)
+			//通配符
+			if strings.Contains(rightStr, "*") || strings.Contains(rightStr, "?") {
+				resultStr = fmt.Sprintf(`{"query_string" : {"query" : "%v:%v", "auto_generate_phrase_queries" : true,"analyze_wildcard":true}}`, colNameStr, rightStr)
+			} else {
+				resultStr = fmt.Sprintf(`{"match" : {"%v" : {"query" : "%v", "type" : "phrase"}}}`, colNameStr, rightStr)
+			}
 		}
 	case ">":
 		resultStr = fmt.Sprintf(`{"range" : {"%v" : {"gt" : "%v"}}}`, colNameStr, rightStr)
@@ -262,8 +267,9 @@ func handleSelectWhereComparisonExpr(expr *sqlparser.Expr, topLevel bool, parent
 		rightStr = strings.Trim(rightStr, ")")
 		resultStr = fmt.Sprintf(`{"terms" : {"%v" : [%v]}}`, colNameStr, rightStr)
 	case "like":
-		rightStr = strings.Replace(rightStr, `%`, ``, -1)
-		resultStr = fmt.Sprintf(`{"match" : {"%v" : {"query" : "%v", "type" : "phrase"}}}`, colNameStr, rightStr)
+		rightStr = strings.Replace(rightStr, `%`, `*`, -1)
+		rightStr = strings.Replace(rightStr, `_`, `?`, -1)
+		resultStr = fmt.Sprintf(`{"query_string" : {"query" : "%v:%v", "auto_generate_phrase_queries" : true,"analyze_wildcard":true}}`, colNameStr, rightStr)
 	case "not like":
 		rightStr = strings.Replace(rightStr, `%`, ``, -1)
 		resultStr = fmt.Sprintf(`{"bool" : {"must_not" : {"match" : {"%v" : {"query" : "%v", "type" : "phrase"}}}}}`, colNameStr, rightStr)
